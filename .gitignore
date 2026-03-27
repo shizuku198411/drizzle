@@ -1,0 +1,7 @@
+.vscode
+bin/
+map/
+obj/
+techdocs/
+
+opensbi-riscv32-generic-fw_dynamic.bin
