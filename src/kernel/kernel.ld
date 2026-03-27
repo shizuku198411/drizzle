@@ -30,8 +30,9 @@ SECTIONS {
 
     .kstack (NOLOAD) : ALIGN(16) {
         . = ALIGN(16);
+        __stack_start_addr = .;
         . += 64 * 1024;
-        __stack_top_addr = .;
+        __stack_end_addr = .;
     }
 
     /* 64MB free ram */

@@ -21,17 +21,14 @@ static void print_hex(unsigned value, int uppercase) {
     }
 }
 
-void printf(const char *fmt, ...) {
-    va_list vargs;
-    va_start(vargs, fmt);
-
+void vprintf(const char *fmt, va_list vargs) {
     while (*fmt) {
         if (*fmt == '%') {
             fmt++;
             switch (*fmt) {
                 case '\0':
                     putchar('%');
-                    goto end;
+                    return;
                 case '%':
                     putchar('%');
                     break;
@@ -100,7 +97,21 @@ void printf(const char *fmt, ...) {
 
         fmt++;
     }
+}
 
-end:
+void printf(const char *fmt, ...) {
+    va_list vargs;
+    va_start(vargs, fmt);
+
+    vprintf(fmt, vargs);
+
     va_end(vargs);
+}
+
+void *memset(void *buf, int c, size_t n) {
+    uint8_t *p = (uint8_t *) buf;
+    while (n--) {
+        *p++ = c;
+    }
+    return buf;
 }
