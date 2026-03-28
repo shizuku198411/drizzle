@@ -1,39 +1,63 @@
 #include "kernel.h"
 #include "kernel_panic.h"
 #include "trap_handle.h"
+#include "timer.h"
+#include "libs_stdio.h"
 #include "libs_stdtypes.h"
+
+static struct trap_scratch boot_trap_scratch;
+
+void trap_init_scratch(uint32_t kernel_sp) {
+    boot_trap_scratch.save_t0 = 0;
+    boot_trap_scratch.save_t1 = 0;
+    boot_trap_scratch.save_t2 = 0;
+    boot_trap_scratch.save_sp = 0;
+    boot_trap_scratch.kernel_sp = kernel_sp;
+    WRITE_CSR(sscratch, (uint32_t)&boot_trap_scratch);
+}
 
 __attribute__((section(".text.trap_entry")))
 __attribute__((naked))
 __attribute__((aligned(4)))
 void trap_entry(void) {
     __asm__ __volatile__(
-        // swap sp/sscratch only when trapped from U-mode (SPP=0)
-        // for S-mode traps, keep the current kernel sp
+        // a0 <- trap_scratch, sscratch <- original a0
+        "csrrw a0, sscratch, a0\n"
+        "sw t0,  4 * 0(a0)\n"
+        "sw t1,  4 * 1(a0)\n"
+        "sw t2,  4 * 2(a0)\n"
+        "sw sp,  4 * 3(a0)\n"
+
+        // For traps from U-mode, switch to the kernel stack stored in scratch.
+        // For traps from S-mode, keep the current kernel sp.
         "csrr t0, sstatus\n"
         "andi t0, t0, 0x100\n"
         "bnez t0, 1f\n"
-        "csrrw sp, sscratch, sp\n"
-        "j 2f\n"
+        "lw sp,  4 * 4(a0)\n"
         "1:\n"
-        "csrw sscratch, sp\n"
-        "2:\n"
 
         // always run trap handler with interrupts disabled to avoid nested traps
         "csrc sstatus, 2\n"
 
-        "addi sp, sp, -4 * 31\n"
+        "addi sp, sp, -4 * 32\n"
         "sw ra,  4 * 0(sp)\n"
         "sw gp,  4 * 1(sp)\n"
         "sw tp,  4 * 2(sp)\n"
+
+        "lw t0,  4 * 0(a0)\n"
+        "lw t1,  4 * 1(a0)\n"
+        "lw t2,  4 * 2(a0)\n"
         "sw t0,  4 * 3(sp)\n"
         "sw t1,  4 * 4(sp)\n"
         "sw t2,  4 * 5(sp)\n"
+
         "sw t3,  4 * 6(sp)\n"
         "sw t4,  4 * 7(sp)\n"
         "sw t5,  4 * 8(sp)\n"
         "sw t6,  4 * 9(sp)\n"
-        "sw a0,  4 * 10(sp)\n"
+
+        "csrr t0, sscratch\n"
+        "sw t0,  4 * 10(sp)\n"
         "sw a1,  4 * 11(sp)\n"
         "sw a2,  4 * 12(sp)\n"
         "sw a3,  4 * 13(sp)\n"
@@ -54,10 +78,9 @@ void trap_entry(void) {
         "sw s10, 4 * 28(sp)\n"
         "sw s11, 4 * 29(sp)\n"
 
-        "csrr a0, sscratch\n"
-        "sw a0, 4 * 30(sp)\n"
+        "lw t0,  4 * 3(a0)\n"
+        "sw t0,  4 * 30(sp)\n"
 
-        "addi a0, sp, 4 * 31\n"
         "csrw sscratch, a0\n"
 
         "mv a0, sp\n"
@@ -94,7 +117,6 @@ void trap_entry(void) {
         "lw s10, 4 * 28(sp)\n"
         "lw s11, 4 * 29(sp)\n"
         "lw sp,  4 * 30(sp)\n"
-
         "sret\n"
     );
 }
@@ -163,12 +185,13 @@ void handle_trap(void) {
             __builtin_unreachable();
 
         case SCAUSE_SUPERVISOR_TIMER:
-            PANIC("Supervisor timer. scause=%x, stval=%x, sepc=%x\n", scause, stval, user_pc);
-            __builtin_unreachable();
-        
+            count_up_timer_tick();
+            set_next_timer();
+            WRITE_CSR(sepc, user_pc);
+            return;
+
         default:
             PANIC("Unexpected trap. scause=%x, stval=%x, sepc=%x\n", scause, stval, user_pc);
             __builtin_unreachable();
-
     }
 }

@@ -11,6 +11,7 @@ struct trap_frame {
     uint32_t t1;
     uint32_t t2;
     uint32_t t3;
+    uint32_t t4;
     uint32_t t5;
     uint32_t t6;
     uint32_t a0;
@@ -34,9 +35,19 @@ struct trap_frame {
     uint32_t s10;
     uint32_t s11;
     uint32_t sp;
+    uint32_t reserved;
+} __attribute__((packed));
+
+struct trap_scratch {
+    uint32_t save_t0;
+    uint32_t save_t1;
+    uint32_t save_t2;
+    uint32_t save_sp;
+    uint32_t kernel_sp;
 };
 
 void trap_entry(void);
+void trap_init_scratch(uint32_t kernel_sp);
 
 #define SCAUSE_INSTRUCTION_ADDRESS_MISALIGNED       0x00
 #define SCAUSE_INSTRUCTION_ACCESS_FAULT             0x01
