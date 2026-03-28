@@ -8,7 +8,6 @@ __attribute__((naked))
 void boot_entry(void) {
     __asm__ __volatile__(
         "mv sp, %[stack_end_addr]\n"
-        "csrw sscratch, sp\n"
         "j kernel_main\n"
         :
         : [stack_end_addr] "r" (__stack_end_addr)

@@ -1,4 +1,4 @@
-.PHONY: build qemu-start qemu-debug
+.PHONY: build kernel-start qemu-debug
 
 # directories
 MAP_DIR := map
@@ -27,7 +27,7 @@ KERNEL_LDSCRIPT := $(KERNEL_SRC_DIR)/kernel.ld
 
 build: $(KERNEL_ELF)
 
-qemu-start: $(KERNEL_ELF)
+kernel-start: $(KERNEL_ELF)
 	$(QEMU) $(QEMU_OPT) -kernel $(KERNEL_ELF)
 
 qemu-debug: $(KERNEL_ELF)
