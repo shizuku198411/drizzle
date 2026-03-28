@@ -19,7 +19,7 @@ CFLAGS := -std=c11 -O2 -g3 -Wall -Wextra --target=riscv32-unknown-elf -fuse-ld=l
 
 # kernel elf
 KERNEL_ELF := $(BIN_DIR)/kernel.elf
-KERNEL_SRCS := $(wildcard $(KERNEL_SRC_DIR)/*.c) $(wildcard $(KERNEL_SRC_DIR)/libs/*.c) $(wildcard $(LIBS_SRC_DIR)/*.c)
+KERNEL_SRCS := $(wildcard $(KERNEL_SRC_DIR)/*.c) $(wildcard $(KERNEL_SRC_DIR)/libs/*.c) $(wildcard $(KERNEL_SRC_DIR)/trap/*.c) $(wildcard $(LIBS_SRC_DIR)/*.c)
 KERNEL_HDRS := $(wildcard $(KERNEL_INC_DIR)/*.h) $(wildcard $(LIBS_INC_DIR)/*.h)
 KERNEL_LDSCRIPT := $(KERNEL_SRC_DIR)/kernel.ld
 
