@@ -36,6 +36,8 @@ static void init_page_allocator(void) {
     paddr_t free_start = (paddr_t) __free_ram_start_addr;
     paddr_t free_end   = (paddr_t) __free_ram_end_addr;
 
+    // Bootstrap only provides the linker-defined free RAM range.
+    // Actual bitmap placement and page bookkeeping live in memory/.
     memory_init(free_start, free_end);
 }
 
@@ -61,6 +63,8 @@ static void print_memory_info(void) {
            (unsigned)get_range_size(__free_ram_start_addr, __free_ram_end_addr));
 
     printf("[boot]     pages\n");
+    // These ranges make it easy to confirm that the bitmap reservation and the
+    // allocatable region do not overlap.
     printf("[boot]       bitmap range  : %p - %p (pages=%d)\n",
            memory_bitmap_start(),
            memory_bitmap_end(),
