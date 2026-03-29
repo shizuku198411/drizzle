@@ -31,7 +31,7 @@ APP_BIN := $(BIN_DIR)/user.bin
 APP_OBJ := $(OBJ_DIR)/user.bin.o
 APP_SRCS := $(USER_SRC_DIR)/user.c $(USER_SRC_DIR)/user_syscall.c $(wildcard $(APP_SRC_DIR)/*.c) $(LIBS_SRC_DIR)/std_libs.c
 USER_HDRS := $(wildcard $(USER_SRC_DIR)/*.h) $(wildcard $(USER_SRC_DIR)/*/*.h) $(wildcard $(LIBS_INC_DIR)/*.h)
-KERNEL_SRCS := $(wildcard $(KERNEL_SRC_DIR)/*.c) $(wildcard $(KERNEL_SRC_DIR)/bootstrap/*.c) $(wildcard $(KERNEL_SRC_DIR)/libs/*.c) $(wildcard $(KERNEL_SRC_DIR)/trap/*.c) $(wildcard $(KERNEL_SRC_DIR)/timer/*.c) $(wildcard $(LIBS_SRC_DIR)/*.c)
+KERNEL_SRCS := $(wildcard $(KERNEL_SRC_DIR)/*.c) $(wildcard $(KERNEL_SRC_DIR)/bootstrap/*.c) $(wildcard $(KERNEL_SRC_DIR)/libs/*.c) $(wildcard $(KERNEL_SRC_DIR)/trap/*.c) $(wildcard $(KERNEL_SRC_DIR)/timer/*.c) $(wildcard $(KERNEL_SRC_DIR)/memory/*.c) $(wildcard $(LIBS_SRC_DIR)/*.c)
 KERNEL_HDRS := $(wildcard $(KERNEL_INC_DIR)/*.h) $(wildcard $(KERNEL_INC_DIR)/*/*.h) $(wildcard $(LIBS_INC_DIR)/*.h)
 KERNEL_LDSCRIPT := $(KERNEL_SRC_DIR)/kernel.ld
 
