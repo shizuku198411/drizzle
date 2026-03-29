@@ -1,7 +1,7 @@
-#include "kernel.h"
-#include "kernel_panic.h"
-#include "trap_handle.h"
-#include "timer.h"
+#include "common/kernel.h"
+#include "common/kernel_panic.h"
+#include "trap/trap_handle.h"
+#include "timer/timer.h"
 #include "libs_stdio.h"
 #include "libs_stdtypes.h"
 

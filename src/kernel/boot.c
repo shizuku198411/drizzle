@@ -1,4 +1,4 @@
-#include "kernel.h"
+#include "common/kernel.h"
 
 // variables defined in "kernel.ld"
 extern char __stack_end_addr[];

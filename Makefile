@@ -29,8 +29,8 @@ APP_ELF := $(BIN_DIR)/user.elf
 APP_BIN := $(BIN_DIR)/user.bin
 APP_OBJ := $(OBJ_DIR)/user.bin.o
 APP_SRCS := $(USER_SRC_DIR)/user.c $(wildcard $(APP_SRC_DIR)/*.c)
-KERNEL_SRCS := $(wildcard $(KERNEL_SRC_DIR)/*.c) $(wildcard $(KERNEL_SRC_DIR)/libs/*.c) $(wildcard $(KERNEL_SRC_DIR)/trap/*.c) $(wildcard $(KERNEL_SRC_DIR)/timer/*.c) $(wildcard $(LIBS_SRC_DIR)/*.c)
-KERNEL_HDRS := $(wildcard $(KERNEL_INC_DIR)/*.h) $(wildcard $(LIBS_INC_DIR)/*.h)
+KERNEL_SRCS := $(wildcard $(KERNEL_SRC_DIR)/*.c) $(wildcard $(KERNEL_SRC_DIR)/bootstrap/*.c) $(wildcard $(KERNEL_SRC_DIR)/libs/*.c) $(wildcard $(KERNEL_SRC_DIR)/trap/*.c) $(wildcard $(KERNEL_SRC_DIR)/timer/*.c) $(wildcard $(LIBS_SRC_DIR)/*.c)
+KERNEL_HDRS := $(wildcard $(KERNEL_INC_DIR)/*.h) $(wildcard $(KERNEL_INC_DIR)/*/*.h) $(wildcard $(LIBS_INC_DIR)/*.h)
 KERNEL_LDSCRIPT := $(KERNEL_SRC_DIR)/kernel.ld
 
 

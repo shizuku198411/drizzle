@@ -1,4 +1,4 @@
-#include "kernel_panic.h"
+#include "common/kernel_panic.h"
 #include "libs_stdio.h"
 #include "libs_stdtypes.h"
 
