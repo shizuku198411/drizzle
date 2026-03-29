@@ -1,5 +1,5 @@
 #include "libs_stdtypes.h"
-#include "common/kernel_stdio.h"
+#include "libs_stdio.h"
 
 static void print_unsigned(unsigned value) {
     unsigned divisor = 1;

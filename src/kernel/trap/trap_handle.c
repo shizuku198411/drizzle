@@ -1,6 +1,7 @@
 #include "common/kernel.h"
 #include "common/kernel_panic.h"
 #include "trap/trap_handle.h"
+#include "trap/syscall_handle.h"
 #include "timer/timer.h"
 #include "libs_stdio.h"
 #include "libs_stdtypes.h"
@@ -194,7 +195,8 @@ void handle_trap(struct trap_frame *f) {
             __builtin_unreachable();
 
         case SCAUSE_ECALL_FROM_U_MODE:
-            printf("[trap] ecall from U-mode. scause=%x, stval=%x, sepc=%x\n", scause, stval, user_pc);
+            //printf("[trap] ecall from U-mode. scause=%x, stval=%x, sepc=%x\n", scause, stval, user_pc);
+            f->a0 = syscall_handle(f->a6, f->a0, f->a1, f->a2, f->a3, f->a4, f->a5);
             WRITE_CSR(sepc, user_pc + 4);
             return;
 

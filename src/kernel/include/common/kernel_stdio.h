@@ -1,3 +1,3 @@
 #pragma once
 
-void putchar(char ch);
+int putchar(char ch);
