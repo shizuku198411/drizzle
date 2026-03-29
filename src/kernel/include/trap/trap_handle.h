@@ -2,7 +2,31 @@
 
 #include "libs_stdtypes.h"
 
-// trap frame structure
+// trap_frame is laid out to match the save/restore order in trap_entry().
+//
+// Stack slot / offset / meaning:
+//   +-------+---------+---------------------------------------------+
+//   | slot  | offset  | saved register / value                      |
+//   +-------+---------+---------------------------------------------+
+//   | 0     | 0x00    | ra                                          |
+//   | 1     | 0x04    | gp                                          |
+//   | 2     | 0x08    | tp                                          |
+//   | 3     | 0x0c    | t0  (restored from trap_scratch.save_t0)    |
+//   | 4     | 0x10    | t1  (restored from trap_scratch.save_t1)    |
+//   | 5     | 0x14    | t2  (restored from trap_scratch.save_t2)    |
+//   | 6     | 0x18    | t3                                          |
+//   | 7     | 0x1c    | t4                                          |
+//   | 8     | 0x20    | t5                                          |
+//   | 9     | 0x24    | t6                                          |
+//   | 10    | 0x28    | a0  (recovered from sscratch after csrrw)   |
+//   | 11-17 | 0x2c-44 | a1-a7                                       |
+//   | 18-29 | 0x48-74 | s0-s11                                      |
+//   | 30    | 0x78    | interrupted sp                              |
+//   | 31    | 0x7c    | reserved (currently unused padding slot)    |
+//   +-------+---------+---------------------------------------------+
+//
+// trap_entry() allocates 32 words so this C layout must stay in sync with the
+// assembly save/load sequence.
 struct trap_frame {
     uint32_t ra;
     uint32_t gp;

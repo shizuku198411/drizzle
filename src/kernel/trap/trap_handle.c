@@ -21,6 +21,30 @@ __attribute__((naked))
 __attribute__((aligned(4)))
 void trap_entry(void) {
     __asm__ __volatile__(
+        // Entry overview:
+        //   1. Swap a0 with sscratch so a0 points at trap_scratch.
+        //   2. Spill the temporaries needed to bootstrap trap handling.
+        //   3. Switch to the kernel stack only when trapping from U-mode.
+        //   4. Build struct trap_frame on the active stack.
+        //   5. Call handle_trap(struct trap_frame *).
+        //   6. Restore registers from the same slots and return with sret.
+        //
+        // trap_frame slot map used below:
+        //   +-------+---------------------------+ save                + restore            +
+        //   | slot  | meaning                   | instruction(s)      | instruction(s)     |
+        //   +-------+---------------------------+---------------------+--------------------+
+        //   | 0-2   | ra, gp, tp                | sw ra/gp/tp         | lw ra/gp/tp        |
+        //   | 3-5   | t0, t1, t2                | lw scratch -> sw    | lw t0/t1/t2        |
+        //   | 6-9   | t3, t4, t5, t6            | sw t3-t6            | lw t3-t6           |
+        //   | 10    | original a0               | csrr t0, sscratch   | lw a0              |
+        //   | 11-17 | a1-a7                     | sw a1-a7            | lw a1-a7           |
+        //   | 18-29 | s0-s11                    | sw s0-s11           | lw s0-s11          |
+        //   | 30    | interrupted sp            | lw scratch[save_sp] | lw sp              |
+        //   | 31    | reserved                  | not written         | not read           |
+        //   +-------+---------------------------+---------------------+--------------------+
+        //
+        // The slot numbers above must match struct trap_frame exactly.
+
         // a0 <- trap_scratch, sscratch <- original a0
         "csrrw a0, sscratch, a0\n"
         "sw t0,  4 * 0(a0)\n"
@@ -39,6 +63,8 @@ void trap_entry(void) {
         // always run trap handler with interrupts disabled to avoid nested traps
         "csrc sstatus, 2\n"
 
+        // Build struct trap_frame on the current stack. The stores below use
+        // the exact slot numbering documented in trap_handle.h.
         "addi sp, sp, -4 * 32\n"
         "sw ra,  4 * 0(sp)\n"
         "sw gp,  4 * 1(sp)\n"
@@ -86,6 +112,8 @@ void trap_entry(void) {
         "mv a0, sp\n"
         "call handle_trap\n"
 
+        // Restore registers from the same trap_frame slots in the reverse
+        // direction, then return to the interrupted context.
         "lw ra,  4 * 0(sp)\n"
         "lw gp,  4 * 1(sp)\n"
         "lw tp,  4 * 2(sp)\n"
@@ -121,7 +149,8 @@ void trap_entry(void) {
     );
 }
 
-void handle_trap(void) {
+void handle_trap(struct trap_frame *f) {
+    (void) f;
     uint32_t scause  = READ_CSR(scause);
     uint32_t stval   = READ_CSR(stval);
     uint32_t user_pc = READ_CSR(sepc);
@@ -129,7 +158,7 @@ void handle_trap(void) {
 
     // check ecall from U-mode or S-mode
     bool from_user = (sstatus & (1u << 8)) == 0;
-    (void)from_user;
+    (void) from_user;
     
     switch (scause) {
         case SCAUSE_INSTRUCTION_ADDRESS_MISALIGNED:
