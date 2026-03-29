@@ -16,4 +16,8 @@
         __asm__ __volatile__("csrw " #reg ", %0" ::"r"(__tmp));                \
     } while (0)
 
+#define USER_BASE      0x80300000u
+#define USER_STACK_TOP 0x80310000u
+#define SSTATUS_SPIE   (1u << 5)
+
 void kernel_main(void);

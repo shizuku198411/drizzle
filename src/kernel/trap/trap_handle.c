@@ -165,8 +165,9 @@ void handle_trap(void) {
             __builtin_unreachable();
 
         case SCAUSE_ECALL_FROM_U_MODE:
-            PANIC("Environment call from U-mode. scause=%x, stval=%x, sepc=%x\n", scause, stval, user_pc);
-            __builtin_unreachable();
+            printf("[trap] ecall from U-mode. scause=%x, stval=%x, sepc=%x\n", scause, stval, user_pc);
+            WRITE_CSR(sepc, user_pc + 4);
+            return;
 
         case SCAUSE_ECALL_FROM_S_MODE:
             PANIC("Environment call from S-mode. scause=%x, stval=%x, sepc=%x\n", scause, stval, user_pc);

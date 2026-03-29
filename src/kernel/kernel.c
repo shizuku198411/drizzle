@@ -10,6 +10,7 @@ extern char __kernel_start_addr[], __kernel_end_addr[];
 extern char __bss_start_addr[], __bss_end_addr[];
 extern char __stack_start_addr[], __stack_end_addr[];
 extern char __free_ram_start_addr[], __free_ram_end_addr[];
+extern char _binary_bin_user_bin_start[], _binary_bin_user_bin_end[];
 
 static bool is_zeroed(const char *buf, size_t len) {
     while (len--) {
@@ -22,6 +23,10 @@ static bool is_zeroed(const char *buf, size_t len) {
 
 static size_t get_range_size(const char *start, const char *end) {   
     return (size_t)end - (size_t)start;
+}
+
+static size_t get_user_binary_size(void) {
+    return (size_t)(_binary_bin_user_bin_end - _binary_bin_user_bin_start);
 }
 
 static void bootstrap_memory(void) {
@@ -83,10 +88,34 @@ static void kernel_bootstrap(void) {
     bootstrap_timer();
 }
 
+static void load_user_binary(void) {
+    size_t user_size = get_user_binary_size();
+
+    memcpy((void *)USER_BASE, _binary_bin_user_bin_start, user_size);
+
+    printf("[boot] load user binary\n");
+    printf("[boot]   user base      : %p\n", (void *)USER_BASE);
+    printf("[boot]   user size      : %x\n", (unsigned)user_size);
+    printf("[boot]   user stack top : %p\n", (void *)USER_STACK_TOP);
+}
+
+__attribute__((noreturn))
+__attribute__((naked))
+static void enter_user_mode(uint32_t entry, uint32_t user_sp) {
+    __asm__ __volatile__(
+        "csrw sepc, a0\n"
+        "mv sp, a1\n"
+        "li t0, %[sstatus_spie]\n"
+        "csrw sstatus, t0\n"
+        "sret\n"
+        :
+        : [sstatus_spie] "i" (SSTATUS_SPIE)
+    );
+}
+
 void kernel_main(void) {
     kernel_bootstrap();
-    
-    for (;;) {
-        __asm__ __volatile__("wfi");
-    }
+    load_user_binary();
+    printf("[boot] enter user mode\n");
+    enter_user_mode(USER_BASE, USER_STACK_TOP);
 }
