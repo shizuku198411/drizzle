@@ -1,3 +1,4 @@
+#include "common/kernel.h"
 #include "common/kernel_panic.h"
 #include "bootstrap/memory.h"
 #include "memory/memory.h"
@@ -39,6 +40,17 @@ static void init_page_allocator(void) {
     // Bootstrap only provides the linker-defined free RAM range.
     // Actual bitmap placement and page bookkeeping live in memory/.
     memory_init(free_start, free_end);
+}
+
+static void enable_paging(paddr_t root_pt) {
+    uint32_t satp = SATP_SV32 | (root_pt / PAGE_SIZE);
+    WRITE_CSR(satp, satp);
+    __asm__ __volatile__("sfence.vma");
+}
+
+static void init_kernel_page(void) {
+    paddr_t root_pt = create_kernel_page_table();
+    enable_paging(root_pt);
 }
 
 static void print_memory_info(void) {
@@ -86,6 +98,10 @@ void bootstrap_memory(void) {
     // init page allocator
     printf("[boot]   init page allocator...");
     init_page_allocator();
+    printf("OK\n");
+
+    printf("[boot]   init kernel page...");
+    init_kernel_page();
     printf("OK\n");
 
     // print memory information

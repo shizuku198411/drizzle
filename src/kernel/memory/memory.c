@@ -3,6 +3,11 @@
 #include "memory/memory.h"
 #include "libs_stdlib.h"
 
+// variables defined in "kernel.ld"
+extern char __kernel_start_addr[], __kernel_end_addr[];
+extern char __stack_start_addr[], __stack_end_addr[];
+extern char __free_ram_start_addr[], __free_ram_end_addr[];
+
 // One bit tracks one managed page: 1 = allocated, 0 = free.
 // The bitmap itself lives at the beginning of free RAM and is therefore not
 // included in the allocatable managed region.
@@ -12,6 +17,7 @@ static paddr_t managed_region_start;
 static uint32_t managed_page_count;
 static uint32_t bitmap_page_count;
 static bool memory_initialized;
+static paddr_t kernel_root_page_table;
 
 static uint32_t calc_total_pages(paddr_t start, paddr_t end) {
     return (end - start) / PAGE_SIZE;
@@ -178,4 +184,133 @@ void pfree(paddr_t paddr, uint32_t n) {
         uint32_t idx = start + i;
         bitmap_clear(idx);
     }
+}
+
+void map_page(uint32_t *table1, vaddr_t vaddr, paddr_t paddr, uint32_t flags) {
+    if (!is_aligned(vaddr, PAGE_SIZE)) {
+        PANIC("unaligned vaddr %p", vaddr);
+    }
+    if (!is_aligned(paddr, PAGE_SIZE)) {
+        PANIC("unaligned paddr %p", paddr);
+    }
+
+    uint32_t vpn1 = (vaddr >> 22) & 0x3ff;
+    if ((table1[vpn1] & PAGE_V) == 0) {
+        // create page table
+        paddr_t pt_paddr = palloc(1);
+        if (pt_paddr == 0) {
+            PANIC("page allocate failed");
+        }
+        table1[vpn1] = ((pt_paddr / PAGE_SIZE) << 10) | PAGE_V;
+    }
+
+    uint32_t vpn0 = (vaddr >> 12) & 0x3ff;
+    uint32_t *table0 = (uint32_t *) ((table1[vpn1] >> 10) * PAGE_SIZE);
+    if ((table0[vpn0] & PAGE_V) != 0) {
+        PANIC("double map occured");
+    }
+    table0[vpn0] = ((paddr / PAGE_SIZE) << 10) | flags | PAGE_V;
+}
+
+void map_kernel_region(uint32_t *table1, vaddr_t vaddr, paddr_t paddr, size_t size, uint32_t flags) {
+    if (size == 0) {
+        return;
+    }
+    if (!is_aligned(vaddr, PAGE_SIZE)) {
+        PANIC("unaligned region vaddr %p", vaddr);
+    }
+    if (!is_aligned(paddr, PAGE_SIZE)) {
+        PANIC("unaligned region paddr %p", paddr);
+    }
+
+    size_t mapped_size = align_up_to_page(size);
+    for (size_t offset = 0; offset < mapped_size; offset += PAGE_SIZE) {
+        map_page(table1, vaddr + offset, paddr + offset, flags);
+    }
+}
+
+paddr_t create_kernel_page_table(void) {
+    if (kernel_root_page_table != 0) {
+        return kernel_root_page_table;
+    }
+
+    paddr_t root_paddr = palloc(1);
+    if (root_paddr == 0) {
+        PANIC("failed to allocate kernel root page table");
+    }
+
+    uint32_t *root_table = (uint32_t *) root_paddr;
+
+    // Start with a coarse identity mapping so that enabling paging later can
+    // continue to execute the current kernel image, stack, and allocator state.
+    map_kernel_region(root_table,
+                      align_down_to_page((vaddr_t) __kernel_start_addr),
+                      align_down_to_page((paddr_t) __kernel_start_addr),
+                      (size_t) (__stack_end_addr - __kernel_start_addr),
+                      PAGE_R | PAGE_W | PAGE_X);
+    map_kernel_region(root_table,
+                      align_down_to_page((vaddr_t) __free_ram_start_addr),
+                      align_down_to_page((paddr_t) __free_ram_start_addr),
+                      (size_t) (__free_ram_end_addr - __free_ram_start_addr),
+                      PAGE_R | PAGE_W);
+
+    kernel_root_page_table = root_paddr;
+    return kernel_root_page_table;
+}
+
+paddr_t kernel_page_table(void) {
+    return kernel_root_page_table;
+}
+
+paddr_t create_user_page_table(vaddr_t user_vaddr,
+                               paddr_t user_paddr,
+                               size_t user_size,
+                               vaddr_t user_stack_top,
+                               uint32_t user_stack_pages) {
+    if (kernel_root_page_table == 0) {
+        PANIC("kernel page table is not initialized");
+    }
+    if (user_size == 0) {
+        PANIC("invalid user image size");
+    }
+    if (user_stack_pages == 0) {
+        PANIC("invalid user stack pages");
+    }
+    if (!is_aligned(user_vaddr, PAGE_SIZE)) {
+        PANIC("unaligned user vaddr %p", user_vaddr);
+    }
+    if (!is_aligned(user_paddr, PAGE_SIZE)) {
+        PANIC("unaligned user paddr %p", user_paddr);
+    }
+    if (!is_aligned(user_stack_top, PAGE_SIZE)) {
+        PANIC("unaligned user stack top %p", user_stack_top);
+    }
+
+    paddr_t root_paddr = palloc(1);
+    if (root_paddr == 0) {
+        PANIC("failed to allocate user root page table");
+    }
+
+    uint32_t *root_table = (uint32_t *) root_paddr;
+    memcpy(root_table, (void *) kernel_root_page_table, PAGE_SIZE);
+
+    map_kernel_region(root_table,
+                      user_vaddr,
+                      user_paddr,
+                      user_size,
+                      PAGE_R | PAGE_X | PAGE_U);
+
+    paddr_t user_stack_paddr = palloc(user_stack_pages);
+    if (user_stack_paddr == 0) {
+        PANIC("failed to allocate user stack pages");
+    }
+
+    vaddr_t user_stack_base = user_stack_top - user_stack_pages * PAGE_SIZE;
+    map_kernel_region(root_table,
+                      user_stack_base,
+                      user_stack_paddr,
+                      user_stack_pages * PAGE_SIZE,
+                      PAGE_R | PAGE_W | PAGE_U);
+
+    return root_paddr;
 }

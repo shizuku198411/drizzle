@@ -19,8 +19,9 @@ QEMU_GDB_PORT ?= 1234
 # c compiler
 CC := clang
 OBJCOPY := llvm-objcopy
+NM := llvm-nm
 RUN_TESTS ?= 0
-CFLAGS := -std=c11 -O2 -g3 -Wall -Wextra --target=riscv32-unknown-elf -fuse-ld=lld -fno-stack-protector -ffreestanding -nostdlib -I$(KERNEL_INC_DIR) -I$(LIBS_INC_DIR) -DRUN_KERNEL_TESTS=$(RUN_TESTS)
+CFLAGS := -std=c11 -O2 -g3 -Wall -Wextra --target=riscv32-unknown-elf -fuse-ld=lld -fno-stack-protector -ffreestanding -nostdlib -I$(KERNEL_INC_DIR) -I$(LIBS_INC_DIR) -I$(OBJ_DIR) -DRUN_KERNEL_TESTS=$(RUN_TESTS)
 USER_CFLAGS := -std=c11 -O2 -g3 -Wall -Wextra --target=riscv32-unknown-elf -fuse-ld=lld -fno-stack-protector -ffreestanding -nostdlib -I$(LIBS_INC_DIR)
 
 # kernel elf
@@ -30,6 +31,7 @@ APP_SRC_DIR := $(USER_APP_DIR)/$(APP_NAME)
 APP_ELF := $(BIN_DIR)/user.elf
 APP_BIN := $(BIN_DIR)/user.bin
 APP_OBJ := $(OBJ_DIR)/user.bin.o
+USER_LAYOUT_HDR := $(OBJ_DIR)/user_layout.h
 KERNEL_MODE_STAMP := $(OBJ_DIR)/kernel_run_tests_$(RUN_TESTS).stamp
 APP_SRCS := $(USER_SRC_DIR)/user.c $(USER_SRC_DIR)/user_syscall.c $(wildcard $(APP_SRC_DIR)/*.c) $(LIBS_SRC_DIR)/std_libs.c
 USER_HDRS := $(wildcard $(USER_SRC_DIR)/*.h) $(wildcard $(USER_SRC_DIR)/*/*.h) $(wildcard $(LIBS_INC_DIR)/*.h)
@@ -49,7 +51,7 @@ test-start:
 qemu-debug: $(KERNEL_ELF)
 	$(QEMU) $(QEMU_OPT) -S -gdb tcp::$(QEMU_GDB_PORT) -kernel $(KERNEL_ELF)
 
-$(KERNEL_ELF): $(KERNEL_SRCS) $(KERNEL_HDRS) $(KERNEL_LDSCRIPT) $(APP_OBJ) $(KERNEL_MODE_STAMP) | $(BIN_DIR) $(MAP_DIR) $(OBJ_DIR)
+$(KERNEL_ELF): $(KERNEL_SRCS) $(KERNEL_HDRS) $(KERNEL_LDSCRIPT) $(APP_OBJ) $(USER_LAYOUT_HDR) $(KERNEL_MODE_STAMP) | $(BIN_DIR) $(MAP_DIR) $(OBJ_DIR)
 	$(CC) $(CFLAGS) -Wl,-T$(KERNEL_SRC_DIR)/kernel.ld -Wl,-Map=$(MAP_DIR)/kernel.map -o $@ \
 		$(KERNEL_SRCS) $(APP_OBJ)
 
@@ -67,6 +69,18 @@ $(APP_BIN): $(APP_ELF)
 
 $(APP_OBJ): $(APP_BIN) | $(OBJ_DIR)
 	$(OBJCOPY) -Ibinary -Oelf32-littleriscv $< $@
+
+$(USER_LAYOUT_HDR): $(APP_ELF) | $(OBJ_DIR)
+	{ \
+		echo '#pragma once'; \
+		$(NM) --defined-only $< | awk '\
+			/ __user_start_addr$$/       { printf "#define USER_BASE 0x%su\n", $$1 } \
+			/ __user_image_end_addr$$/   { printf "#define USER_IMAGE_END 0x%su\n", $$1 } \
+			/ __user_stack_start_addr$$/ { printf "#define USER_STACK_BASE 0x%su\n", $$1 } \
+			/ __user_stack_end_addr$$/   { printf "#define USER_STACK_TOP 0x%su\n", $$1 }'; \
+		echo '#define USER_STACK_SIZE  (USER_STACK_TOP - USER_STACK_BASE)'; \
+		echo '#define USER_STACK_PAGES (USER_STACK_SIZE / 4096u)'; \
+	} > $@
 
 $(BIN_DIR) $(MAP_DIR) $(OBJ_DIR):
 	mkdir -p $@
